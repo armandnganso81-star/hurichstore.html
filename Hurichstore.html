@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1d2a">
+<title>hurich.harck.network – Médiathèque libre</title>
+<style>
+:root{--bg:#f3f6f8;--card:#fff;--tx:#10222e;--mut:#5f7683;--ac:#0e9f8e;--ac2:#0b6e8a;--bd:#d9e3e8;--bad:#d9534f;--warn:#e0a100;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1d2a;--card:#12293a;--tx:#e8f2f6;--mut:#8aa5b3;--bd:#1f3b4d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b1d2a;--card:#12293a;--tx:#e8f2f6;--mut:#8aa5b3;--bd:#1f3b4d;color-scheme:dark}
+*{box-sizing:border-box}html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--ac2);z-index:10}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:linear-gradient(135deg,var(--ac2),var(--ac));color:#fff;padding:12px 16px}
+h1{margin:0;font-size:18px}.hs{font-size:12px;opacity:.95;margin-top:2px}
+main{max-width:640px;margin:0 auto;padding:12px 14px 40px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button,.chips button{padding:10px 6px;border:1px solid var(--bd);background:var(--card);color:var(--mut);border-radius:12px;font-size:14px}
+.tabs button{flex:1}.tabs button.a,.chips button.a{background:var(--ac);color:#fff;border-color:var(--ac)}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px}.chips button{white-space:nowrap;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:10px;display:flex;gap:10px}
+.card img{width:64px;height:64px;object-fit:cover;border-radius:10px;background:var(--bd);flex:none}
+.card .b{flex:1;min-width:0}.card h3{margin:0;font-size:15px;word-break:break-word}
+.sm{font-size:12px;color:var(--mut);margin-top:3px;word-break:break-word}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+button.b2,a.b2{flex:1;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;text-align:center;text-decoration:none;min-width:90px;cursor:pointer}
+.p{background:var(--ac)!important;color:#fff!important;border-color:var(--ac)!important}.d{color:var(--bad)!important}
+input[type=search]{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit;margin-bottom:8px}
+.bar{height:6px;border-radius:9px;background:var(--bd);margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac);width:0}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--bd);margin-right:6px}
+.ok{color:var(--ac)}.er{color:var(--bad)}.wt{color:var(--warn)}
+.empty{text-align:center;color:var(--mut);padding:30px 10px}
+.warn{background:var(--card);border:1px solid var(--warn);border-radius:12px;padding:10px;font-size:13px;margin-bottom:10px}
+dialog{border:0;border-radius:18px;padding:14px;width:min(94vw,520px);background:var(--card);color:var(--tx);max-height:85vh;overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog video,dialog audio{width:100%;max-height:55vh;border-radius:10px}
+.note{font-size:12px;color:var(--mut);margin-top:12px}
+</style>
+</head>
+<body>
+<header><h1>hurich.harck.network</h1><div class="hs" id="hs">Médiathèque libre · téléchargement hors ligne</div></header>
+<main>
+<div class="tabs" id="tabs"></div>
+<div id="view"></div>
+<div class="note">Contenus issus d’Internet Archive (domaine public et licences libres). Vérifie la licence sur la page source avant tout réemploi. <span id="stor"></span></div>
+</main>
+<dialog id="dlg"><div id="dc"></div><div class="row"><button class="b2 p" id="cl">Fermer</button></div></dialog>
+<script>
+(function(){
+var TABS=[["cat","Catalogue"],["dl","Téléchargements"],["lib","Hors ligne"]],tab="cat",db=null,mem=[],busy=false,openUrl=null,prog={};
+var CATS=[["Films classiques","v","collection:feature_films"],["Archives & dessins","v","collection:prelinger"],["Musique libre (CC)","a","licenseurl:(*creativecommons.org*)"],["Livres audio","a","collection:librivoxaudio"]];
+var cat=0,results=[],msg="",loading=false,qtxt="";
+var $=function(i){return document.getElementById(i)};
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+function openDB(){return new Promise(function(res){try{var r=indexedDB.open("hhn_media",1);r.onupgradeneeded=function(){r.result.createObjectStore("items",{keyPath:"id"})};r.onsuccess=function(){db=r.result;res()};r.onerror=function(){res()}}catch(e){res()}})}
+function all(){return new Promise(function(res){if(!db)return res(mem.slice());try{var q=db.transaction("items").objectStore("items").getAll();q.onsuccess=function(){res(q.result||[])};q.onerror=function(){res([])}}catch(e){res([])}})}
+function put(it){return new Promise(function(res){if(!db){var i=mem.findIndex(function(m){return m.id===it.id});if(i<0)mem.push(it);else mem[i]=it;return res()}try{var t=db.transaction("items","readwrite");t.objectStore("items").put(it);t.oncomplete=res;t.onerror=res}catch(e){res()}})}
+function del(id){return new Promise(function(res){if(!db){mem=mem.filter(function(m){return m.id!==id});return res()}try{var t=db.transaction("items","readwrite");t.objectStore("items").delete(id);t.oncomplete=res;t.onerror=res}catch(e){res()}})}
+function size(n){if(!n)return"0 o";var u=["o","Ko","Mo","Go"],i=Math.min(3,Math.floor(Math.log(n)/Math.log(1024)));return(n/Math.pow(1024,i)).toFixed(i?1:0)+" "+u[i]}
+function dlurl(id,n){return"https://archive.org/download/"+encodeURIComponent(id)+"/"+n.split("/").map(encodeURIComponent).join("/")}
+function stor(){if(navigator.storage&&navigator.storage.estimate)navigator.storage.estimate().then(function(e){$("stor").textContent="Stockage : "+size(e.usage)+" / "+size(e.quota)+"."}).catch(function(){})}
+/* Recherche dans le catalogue */
+async function search(){
+ loading=true;msg="";results=[];render();var c=CATS[cat];
+ var q="("+(qtxt?"("+qtxt.replace(/[()"]/g," ")+") AND ":"")+c[2]+") AND mediatype:"+(c[1]==="v"?"movies":"audio");
+ var u="https://archive.org/advancedsearch.php?q="+encodeURIComponent(q)+"&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=licenseurl&rows=24&page=1&output=json&sort[]="+encodeURIComponent("downloads desc");
+ try{var r=await fetch(u);if(!r.ok)throw 0;var j=await r.json();results=(j.response&&j.response.docs)||[];if(!results.length)msg="Aucun résultat. Essaie un autre mot."}
+ catch(e){msg=navigator.onLine?"Catalogue inaccessible depuis cet aperçu (réseau externe bloqué). Héberge l’application sur Netlify ou GitHub Pages pour activer la recherche en direct.":"Tu es hors ligne : le catalogue se charge dès que le réseau revient. Ta bibliothèque reste disponible."}
+ loading=false;render()}
+/* Choix du fichier à télécharger */
+async function choose(doc){
+ var d=$("dc");d.innerHTML="";d.appendChild(el("h3","",doc.title||doc.identifier));d.appendChild(el("div","sm","Chargement de la liste des fichiers…"));$("dlg").showModal();
+ try{var r=await fetch("https://archive.org/metadata/"+encodeURIComponent(doc.identifier));var j=await r.json();
+  var ext=CATS[cat][1]==="v"?/\.(mp4|ogv|webm|m4v)$/i:/\.(mp3|ogg|m4a|opus|flac)$/i;
+  var fl=(j.files||[]).filter(function(f){return ext.test(f.name)&&f.source!=="metadata"}).sort(function(a,b){return(+a.size||0)-(+b.size||0)}).slice(0,30);
+  d.innerHTML="";d.appendChild(el("h3","",doc.title||doc.identifier));
+  if(!fl.length){d.appendChild(el("div","sm","Aucun fichier téléchargeable trouvé pour ce contenu."));return}
+  d.appendChild(el("div","sm","Choisis le fichier (les plus légers d’abord) :"));
+  fl.forEach(function(f){var b=el("button","b2",f.name.split("/").pop()+" · "+size(+f.size||0));b.style.cssText="display:block;width:100%;margin-top:6px;text-align:left";
+   b.onclick=async function(){$("dlg").close();await put({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:(doc.title||doc.identifier)+" — "+f.name.split("/").pop(),url:dlurl(doc.identifier,f.name),src:"https://archive.org/details/"+doc.identifier,status:"attente",added:Date.now(),size:0});tab="dl";render();run()};d.appendChild(b)})
+ }catch(e){d.innerHTML="";d.appendChild(el("div","sm","Impossible de lire les fichiers (réseau ou blocage). Réessaie en ligne."))}}
+/* File d'attente avec progression */
+async function run(){
+ if(busy||!navigator.onLine)return;busy=true;var items=await all();
+ for(var i=0;i<items.length;i++){var it=items[i];if(it.status!=="attente")continue;
+  it.status="en cours";await put(it);prog[it.id]=0;render();
+  try{var r=await fetch(it.url);if(!r.ok)throw new Error("Erreur serveur "+r.status);
+   var tot=+r.headers.get("content-length")||0,rd=r.body&&r.body.getReader(),ch=[],got=0;
+   if(rd){for(;;){var s=await rd.read();if(s.done)break;ch.push(s.value);got+=s.value.length;if(tot){prog[it.id]=got/tot;if(!it._t||Date.now()-it._t>400){it._t=Date.now();upd(it.id)}}}}
+   var b=rd?new Blob(ch,{type:r.headers.get("content-type")||""}):await r.blob();
+   it.blob=b;it.type=b.type||(/\.mp3$/i.test(it.url)?"audio/mpeg":/\.ogv|webm$/i.test(it.url)?"video/ogg":"video/mp4");it.size=b.size;it.status="prêt";it.err="";
+  }catch(e){it.status="échec";it.err=(e&&e.message&&e.message!=="Failed to fetch")?e.message:"Téléchargement impossible (réseau coupé ou bloqué)."}
+  delete it._t;delete prog[it.id];await put(it)}
+ busy=false;render();stor()}
+function upd(id){var b=document.querySelector('[data-p="'+id+'"]');if(b)b.style.width=Math.round((prog[id]||0)*100)+"%"}
+function play(it){var d=$("dc");d.innerHTML="";d.appendChild(el("h3","",it.name));if(openUrl)URL.revokeObjectURL(openUrl);openUrl=URL.createObjectURL(it.blob);
+ var v=/^audio/.test(it.type)?el("audio"):el("video");v.src=openUrl;v.controls=true;v.autoplay=true;v.playsInline=true;d.appendChild(v);$("dlg").showModal()}
+async function render(){
+ var T=$("tabs");T.innerHTML="";TABS.forEach(function(t){var b=el("button",t[0]===tab?"a":"",t[1]);b.onclick=function(){tab=t[0];render();if(t[0]==="cat"&&!results.length&&!loading&&!msg)search()};T.appendChild(b)});
+ var V=$("view");V.innerHTML="";
+ if(tab==="cat"){
+  var ch=el("div","chips");CATS.forEach(function(c,i){var b=el("button",i===cat?"a":"",c[0]);b.onclick=function(){cat=i;search()};ch.appendChild(b)});V.appendChild(ch);
+  var s=el("input");s.type="search";s.placeholder="Rechercher (ex : jazz, western, Afrique…)";s.value=qtxt;s.onkeydown=function(e){if(e.key==="Enter"){qtxt=s.value.trim();search()}};V.appendChild(s);
+  if(loading)V.appendChild(el("div","empty","Recherche en cours…"));
+  else if(msg)V.appendChild(el("div","warn",msg));
+  results.forEach(function(d){var c=el("div","card"),im=el("img");im.alt="";im.loading="lazy";im.src="https://archive.org/services/img/"+encodeURIComponent(d.identifier);im.onerror=function(){im.style.visibility="hidden"};c.appendChild(im);
+   var b=el("div","b");b.appendChild(el("h3","",d.title||d.identifier));b.appendChild(el("div","sm",(d.creator?[].concat(d.creator).join(", ")+" · ":"")+(d.licenseurl?"Licence libre déclarée":"Domaine public / collection libre")));
+   var r=el("div","row"),g=el("button","b2 p","Télécharger");g.onclick=function(){choose(d)};r.appendChild(g);
+   var a=el("a","b2","Source");a.href="https://archive.org/details/"+encodeURIComponent(d.identifier);a.target="_blank";a.rel="noopener noreferrer";r.appendChild(a);b.appendChild(r);c.appendChild(b);V.appendChild(c)});
+  return}
+ var items=await all();var list=items.filter(function(i){return tab==="lib"?i.status==="prêt":i.status!=="prêt"}).sort(function(a,b){return b.added-a.added});
+ if(!list.length){V.appendChild(el("div","empty",tab==="lib"?"Rien hors ligne pour le moment. Télécharge depuis le catalogue.":"Aucun téléchargement en cours."));return}
+ list.forEach(function(it){var c=el("div","card"),b=el("div","b");b.appendChild(el("h3","",it.name));
+  var s=el("div","sm");s.appendChild(el("span","tag "+(it.status==="prêt"?"ok":it.status==="échec"?"er":"wt"),it.status));
+  s.appendChild(document.createTextNode(it.status==="prêt"?size(it.size):(it.err||"En attente de réseau…")));b.appendChild(s);
+  if(it.status==="en cours"){var br=el("div","bar"),bi=el("i");bi.setAttribute("data-p",it.id);bi.style.width=Math.round((prog[it.id]||0)*100)+"%";br.appendChild(bi);b.appendChild(br)}
+  var r=el("div","row");
+  if(it.status==="prêt"){var o=el("button","b2 p","Lire");o.onclick=function(){play(it)};r.appendChild(o)}
+  else if(it.status==="échec"){var re=el("button","b2 p","Réessayer");re.onclick=async function(){it.status="attente";await put(it);render();run()};r.appendChild(re)}
+  var x=el("button","b2 d","Supprimer");x.onclick=async function(){await del(it.id);render()};r.appendChild(x);b.appendChild(r);c.appendChild(b);V.appendChild(c)})}
+$("cl").onclick=function(){$("dlg").close()};
+$("dlg").addEventListener("close",function(){$("dc").innerHTML="";var m=document.querySelector("#dc video,#dc audio");if(openUrl){URL.revokeObjectURL(openUrl);openUrl=null}});
+window.addEventListener("online",function(){$("hs").textContent="En ligne · téléchargements repris";run();if(tab==="cat"&&msg)search()});
+window.addEventListener("offline",function(){$("hs").textContent="Hors ligne · ta bibliothèque reste disponible"});
+openDB().then(function(){render();stor();run();search()});
+})();
+</script>
+</body>
+</html>
